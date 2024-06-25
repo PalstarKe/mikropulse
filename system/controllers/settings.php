@@ -1,9 +1,8 @@
 <?php
 
 /**
- * PHP Mikrotik Billing (https://github.com/PalstarKe/ispsystem/master.zip)
- *
- * This script is for updating Mikropulse
+ *  PHP Mikrotik Billing (https://github.com/hotspotbilling/phpnuxbill/)
+ *  by https://t.me/ibnux
  **/
 _admin();
 $ui->assign('_title', Lang::T('Settings'));
@@ -19,19 +18,19 @@ switch ($action) {
         }
 
         if (!empty(_get('testWa'))) {
-            $result = Message::sendWhatsapp(_get('testWa'), 'MikroPulse Test Whatsapp');
+            $result = Message::sendWhatsapp(_get('testWa'), 'PHPNuxBill Test Whatsapp');
             r2(U . "settings/app", 's', 'Test Whatsapp has been send<br>Result: ' . $result);
         }
         if (!empty(_get('testSms'))) {
-            $result = Message::sendSMS(_get('testSms'), 'MikroPulse Test SMS');
+            $result = Message::sendSMS(_get('testSms'), 'PHPNuxBill Test SMS');
             r2(U . "settings/app", 's', 'Test SMS has been send<br>Result: ' . $result);
         }
         if (!empty(_get('testEmail'))) {
-            Message::sendEmail(_get('testEmail'), 'MikroPulse Test Email', 'MikroPulse Test Email Body');
+            Message::sendEmail(_get('testEmail'), 'PHPNuxBill Test Email', 'PHPNuxBill Test Email Body');
             r2(U . "settings/app", 's', 'Test Email has been send');
         }
         if (!empty(_get('testTg'))) {
-            $result = Message::sendTelegram('MikroPulse Test Telegram');
+            $result = Message::sendTelegram('PHPNuxBill Test Telegram');
             r2(U . "settings/app", 's', 'Test Telegram has been send<br>Result: ' . $result);
         }
 
@@ -42,14 +41,6 @@ switch ($action) {
             $logo = $UPLOAD_URL_PATH . DIRECTORY_SEPARATOR . 'logo.default.png';
         }
         $ui->assign('logo', $logo);
-        if ($config['radius_enable'] && empty($config['radius_client'])) {
-            try {
-                $config['radius_client'] = Radius::getClient();
-                $ui->assign('_c', $_c);
-            } catch (Exception $e) {
-                //ignore
-            }
-        }
         $themes = [];
         $files = scandir('ui/themes/');
         foreach ($files as $file) {
@@ -110,17 +101,18 @@ switch ($action) {
         } else {
             if ($radius_enable) {
                 try {
-                    Radius::getTableNas()->find_many();
+                    require_once $DEVICE_PATH . DIRECTORY_SEPARATOR . "Radius.php";
+                    (new Radius())->getTableNas()->find_many();
                 } catch (Exception $e) {
                     $ui->assign("error_title", "RADIUS Error");
                     $ui->assign("error_message", "Radius table not found.<br><br>" .
                         $e->getMessage() .
-                        "<br><br>Download <a href=\"https://raw.githubusercontent.com/hotspotbilling/MikroPulse/Development/install/radius.sql\">here</a> or <a href=\"https://raw.githubusercontent.com/hotspotbilling/MikroPulse/master/install/radius.sql\">here</a> and import it to database.<br><br>Check config.php for radius connection details");
+                        "<br><br>Download <a href=\"https://raw.githubusercontent.com/hotspotbilling/phpnuxbill/Development/install/radius.sql\">here</a> or <a href=\"https://raw.githubusercontent.com/hotspotbilling/phpnuxbill/master/install/radius.sql\">here</a> and import it to database.<br><br>Check config.php for radius connection details");
                     $ui->display('router-error.tpl');
                     die();
                 }
             }
-            // save all settings
+            // Save all settings including tax system
             foreach ($_POST as $key => $value) {
                 $d = ORM::for_table('tbl_appconfig')->where('setting', $key)->find_one();
                 if ($d) {
@@ -133,7 +125,6 @@ switch ($action) {
                     $d->save();
                 }
             }
-
             //checkbox
             $checks = ['hide_mrc', 'hide_tms', 'hide_aui', 'hide_al', 'hide_uet', 'hide_vs', 'hide_pg'];
             foreach ($checks as $check) {
@@ -269,8 +260,8 @@ switch ($action) {
             $d->value = $lan;
             $d->save();
             unset($_SESSION['Lang']);
-            _log('[' . $admin['username'] . ']: ' . Lang::T('Settings Saved Successfully'), $admin['user_type'], $admin['id']);
-            r2(U . 'settings/localisation', 's', Lang::T('Settings Saved Successfully'));
+            _log('[' . $admin['username'] . ']: ' . 'Settings Saved Successfully', $admin['user_type'], $admin['id']);
+            r2(U . 'settings/localisation', 's', 'Settings Saved Successfully');
         }
         break;
 
@@ -690,7 +681,7 @@ switch ($action) {
         header('Content-Type: application/force-download');
         header('Content-Type: application/octet-stream');
         header('Content-Type: application/download');
-        header('Content-Disposition: attachment;filename="MikroPulse_' . count($tables) . '_tables_' . date('Y-m-d_H_i') . '.json"');
+        header('Content-Disposition: attachment;filename="phpnuxbill_' . count($tables) . '_tables_' . date('Y-m-d_H_i') . '.json"');
         header('Content-Transfer-Encoding: binary');
         $array = [];
         foreach ($tables as $table) {
@@ -706,21 +697,45 @@ switch ($action) {
             $suc = 0;
             $fal = 0;
             $json = json_decode(file_get_contents($_FILES['json']['tmp_name']), true);
+            try {
+                ORM::raw_execute("SET FOREIGN_KEY_CHECKS=0;");
+            } catch (Throwable $e) {
+            } catch (Exception $e) {
+            }
+            try {
+                ORM::raw_execute("SET GLOBAL FOREIGN_KEY_CHECKS=0;");
+            } catch (Throwable $e) {
+            } catch (Exception $e) {
+            }
             foreach ($json as $table => $records) {
                 ORM::raw_execute("TRUNCATE $table;");
                 foreach ($records as $rec) {
-                    $t = ORM::for_table($table)->create();
-                    foreach ($rec as $k => $v) {
-                        if ($k != 'id') {
+                    try {
+                        $t = ORM::for_table($table)->create();
+                        foreach ($rec as $k => $v) {
                             $t->set($k, $v);
                         }
-                    }
-                    if ($t->save()) {
-                        $suc++;
-                    } else {
+                        if ($t->save()) {
+                            $suc++;
+                        } else {
+                            $fal++;
+                        }
+                    } catch (Throwable $e) {
+                        $fal++;
+                    } catch (Exception $e) {
                         $fal++;
                     }
                 }
+            }
+            try {
+                ORM::raw_execute("SET FOREIGN_KEY_CHECKS=1;");
+            } catch (Throwable $e) {
+            } catch (Exception $e) {
+            }
+            try {
+                ORM::raw_execute("SET GLOBAL FOREIGN_KEY_CHECKS=1;");
+            } catch (Throwable $e) {
+            } catch (Exception $e) {
             }
             if (file_exists($_FILES['json']['tmp_name'])) unlink($_FILES['json']['tmp_name']);
             r2(U . "settings/dbstatus", 's', "Restored $suc success $fal failed");
@@ -744,6 +759,42 @@ switch ($action) {
     case 'lang-post':
         file_put_contents($lan_file, json_encode($_POST, JSON_PRETTY_PRINT));
         r2(U . 'settings/language', 's', Lang::T('Translation saved Successfully'));
+        break;
+
+    case 'maintenance':
+        if (!in_array($admin['user_type'], ['SuperAdmin', 'Admin'])) {
+            _alert(Lang::T('You do not have permission to access this page'), 'danger', "dashboard");
+            exit;
+        }
+        if (_post('save') == 'save') {
+            $status = isset($_POST['maintenance_mode']) ? 1 : 0; // Checkbox returns 1 if checked, otherwise 0
+            $force_logout = isset($_POST['maintenance_mode_logout']) ? 1 : 0; // Checkbox returns 1 if checked, otherwise 0
+            $date = isset($_POST['maintenance_date']) ? $_POST['maintenance_date'] : null;
+
+            $settings = [
+                'maintenance_mode' => $status,
+                'maintenance_mode_logout' => $force_logout,
+                'maintenance_date' => $date
+            ];
+
+            foreach ($settings as $key => $value) {
+                $d = ORM::for_table('tbl_appconfig')->where('setting', $key)->find_one();
+                if ($d) {
+                    $d->value = $value;
+                    $d->save();
+                } else {
+                    $d = ORM::for_table('tbl_appconfig')->create();
+                    $d->setting = $key;
+                    $d->value = $value;
+                    $d->save();
+                }
+            }
+
+            r2(U . "settings/maintenance", 's', Lang::T('Settings Saved Successfully'));
+        }
+        $ui->assign('_c', $config);
+        $ui->assign('_title', Lang::T('Maintenance Mode Settings'));
+        $ui->display('maintenance-mode.tpl');
         break;
 
     default:

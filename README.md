@@ -16,3 +16,7 @@ MikroPulse is an efficient and user-friendly billing system specifically designe
 1. Clone the repository:
    ```sh
    git clone https://github.com/PalstarKe/mikropulse.git
+<<<<<<< HEAD
+=======
+>>>>>>> 029c862 (Updated ReadME)
+>>>>>>> 8c68d9b (New Updates)

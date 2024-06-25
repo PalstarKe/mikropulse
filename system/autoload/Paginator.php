@@ -8,7 +8,7 @@
 
 class Paginator
 {
-    public static function findMany($query, $search = [], $per_page = '10')
+    public static function findMany($query, $search = [], $per_page = '10', $append_url = "")
     {
         global $routes, $ui;
         $adjacents = "2";
@@ -18,9 +18,8 @@ class Paginator
         if (count($search) > 0) {
             $url .= '&' . http_build_query($search);
         }
-        $url .= '&p=';
+        $url .= $append_url.'&p=';
         $totalReq = $query->count();
-        $next = $page + 1;
         $lastpage = ceil($totalReq / $per_page);
         $lpm1 = $lastpage - 1;
         $limit = $per_page;

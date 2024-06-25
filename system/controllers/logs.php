@@ -1,13 +1,12 @@
 <?php
 
 /**
- * PHP Mikrotik Billing (https://github.com/PalstarKe/ispsystem/master.zip)
- *
- * This script is for updating Mikropulse
+ *  PHP Mikrotik Billing (https://github.com/hotspotbilling/phpnuxbill/)
+ *  by https://t.me/ibnux
  **/
 
 _admin();
-$ui->assign('_title', 'MikroPulse Logs');
+$ui->assign('_title', 'PHPNuxBill Logs');
 $ui->assign('_system_menu', 'logs');
 
 $action = $routes['1'];

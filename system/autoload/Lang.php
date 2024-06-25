@@ -11,7 +11,9 @@ class Lang
     public static function T($key)
     {
         global $_L, $lan_file, $config;
-        $_L = $_SESSION['Lang'];
+        if(is_array($_SESSION['Lang'])){
+            $_L = array_merge($_L, $_SESSION['Lang']);
+        }
         $key = preg_replace('/\s+/', ' ', $key);
         if (!empty($_L[$key])) {
             return $_L[$key];
@@ -99,10 +101,9 @@ class Lang
 
     public static function timeElapsed($datetime, $full = false)
     {
-        $now = new DateTime;
+        $now = new DateTime(date("Y-m-d H:i:s"));
         $ago = new DateTime($datetime);
         $diff = $now->diff($ago);
-
         $diff->w = floor($diff->d / 7);
         $diff->d -= $diff->w * 7;
 
@@ -122,10 +123,23 @@ class Lang
                 unset($string[$k]);
             }
         }
-
+        $when = "";
+        if(time()>strtotime($datetime)){
+            $when = Lang::T('ago');
+        }else{
+            $when = '';
+        }
         if (!$full)
             $string = array_slice($string, 0, 1);
-        return $string ? implode(', ', $string) . ' ago' : 'just now';
+        if($string){
+            if(empty($when)){
+                return '<b>'. implode(', ', $string) .'</b>';
+            }else{
+                return implode(', ', $string) .' '. $when;
+            }
+        }else{
+            return Lang::T('just now');
+        }
     }
 
     public static function nl2br($text)

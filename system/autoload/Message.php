@@ -8,6 +8,8 @@
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 use PHPMailer\PHPMailer\SMTP;
+use PEAR2\Net\RouterOS;
+
 require $root_path . 'system/autoload/mail/Exception.php';
 require $root_path . 'system/autoload/mail/PHPMailer.php';
 require $root_path . 'system/autoload/mail/SMTP.php';
@@ -28,16 +30,17 @@ class Message
     public static function sendSMS($phone, $txt)
     {
         global $config;
+        if(empty($txt)){
+            return "";
+        }
         run_hook('send_sms'); #HOOK
         if (!empty($config['sms_url'])) {
             if (strlen($config['sms_url']) > 4 && substr($config['sms_url'], 0, 4) != "http") {
                 if (strlen($txt) > 160) {
                     $txts = str_split($txt, 160);
                     try {
-                        $mikrotik = Mikrotik::info($config['sms_url']);
-                        $client = Mikrotik::getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
                         foreach ($txts as $txt) {
-                            Mikrotik::sendSMS($client, $phone, $txt);
+                            self::sendSMS($config['sms_url'], $phone, $txt);
                         }
                     } catch (Exception $e) {
                         // ignore, add to logs
@@ -45,9 +48,7 @@ class Message
                     }
                 } else {
                     try {
-                        $mikrotik = Mikrotik::info($config['sms_url']);
-                        $client = Mikrotik::getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
-                        Mikrotik::sendSMS($client, $phone, $txt);
+                        self::sendSMS($config['sms_url'], $phone, $txt);
                     } catch (Exception $e) {
                         // ignore, add to logs
                         _log("Failed to send SMS using Mikrotik.\n" . $e->getMessage(), 'SMS', 0);
@@ -61,9 +62,30 @@ class Message
         }
     }
 
+    public static function MikrotikSendSMS($router_name, $to, $message)
+    {
+        global $_app_stage, $client_m;
+        if ($_app_stage == 'demo') {
+            return null;
+        }
+        if(!isset($client_m)){
+            $mikrotik = ORM::for_table('tbl_routers')->where('name', $router_name)->find_one();
+            $iport = explode(":", $mikrotik['ip_address']);
+            $client_m = new RouterOS\Client($iport[0], $mikrotik['username'], $mikrotik['password'], ($iport[1]) ? $iport[1] : null);
+        }
+        $smsRequest = new RouterOS\Request('/tool sms send');
+        $smsRequest
+            ->setArgument('phone-number', $to)
+            ->setArgument('message', $message);
+        $client_m->sendSync($smsRequest);
+    }
+
     public static function sendWhatsapp($phone, $txt)
     {
         global $config;
+        if(empty($txt)){
+            return "";
+        }
         run_hook('send_whatsapp'); #HOOK
         if (!empty($config['wa_url'])) {
             $waurl = str_replace('[number]', urlencode(Lang::phoneFormat($phone)), $config['wa_url']);
@@ -75,6 +97,9 @@ class Message
     public static function sendEmail($to, $subject, $body)
     {
         global $config;
+        if(empty($body)){
+            return "";
+        }
         run_hook('send_email'); #HOOK
         if (empty($config['smtp_host'])) {
             $attr = "";
@@ -106,13 +131,15 @@ class Message
             $mail->Subject = $subject;
             $mail->Body    = $body;
             $mail->send();
-            die();
         }
     }
 
     public static function sendPackageNotification($customer, $package, $price, $message, $via)
     {
-        global $u;
+        global $ds;
+        if(empty($message)){
+            return "";
+        }
         $msg = str_replace('[[name]]', $customer['fullname'], $message);
         $msg = str_replace('[[username]]', $customer['username'], $msg);
         $msg = str_replace('[[plan]]', $package, $msg);
@@ -129,8 +156,10 @@ class Message
         }else{
             $msg = str_replace('[[bills]]', '', $msg);
         }
-        if ($u) {
-            $msg = str_replace('[[expired_date]]', Lang::dateAndTimeFormat($u['expiration'], $u['time']), $msg);
+        if ($ds) {
+            $msg = str_replace('[[expired_date]]', Lang::dateAndTimeFormat($ds['expiration'], $ds['time']), $msg);
+        }else{
+            $msg = str_replace('[[expired_date]]', "", $msg);
         }
         if (
             !empty($customer['phonenumber']) && strlen($customer['phonenumber']) > 5

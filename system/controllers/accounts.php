@@ -1,9 +1,8 @@
 <?php
 
 /**
- * PHP Mikrotik Billing (https://github.com/PalstarKe/ispsystem/master.zip)
- *
- * This script is for updating Mikropulse
+ *  PHP Mikrotik Billing (https://github.com/hotspotbilling/phpnuxbill/)
+ *  by https://t.me/ibnux
  **/
 
 
@@ -42,21 +41,15 @@ switch ($action) {
 
                     $c = ORM::for_table('tbl_user_recharges')->where('username', $user['username'])->find_one();
                     if ($c) {
+                        // if has active plan, change the password to devices
                         $p = ORM::for_table('tbl_plans')->where('id', $c['plan_id'])->find_one();
-                        if ($p['is_radius']) {
-                            if ($c['type'] == 'Hotspot' || ($c['type'] == 'PPPOE' && empty($d['pppoe_password']))) {
-                                Radius::customerUpsert($d, $p);
-                            }
-                        } else {
-                            $mikrotik = Mikrotik::info($c['routers']);
-                            $client = Mikrotik::getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
-                            if ($c['type'] == 'Hotspot') {
-                                Mikrotik::setHotspotUser($client, $c['username'], $npass);
-                                Mikrotik::removeHotspotActiveUser($client, $user['username']);
-                            } else if (empty($d['pppoe_password'])) {
-                                // only change when pppoe_password empty
-                                Mikrotik::setPpoeUser($client, $c['username'], $npass);
-                                Mikrotik::removePpoeActive($client, $user['username']);
+                        $dvc = Package::getDevice($p);
+                        if ($_app_stage != 'demo') {
+                            if (file_exists($dvc)) {
+                                require_once $dvc;
+                                (new $p['device'])->remove_customer($c, $p);
+                            } else {
+                                new Exception(Lang::T("Devices Not Found"));
                             }
                         }
                     }

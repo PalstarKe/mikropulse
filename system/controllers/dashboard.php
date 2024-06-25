@@ -1,19 +1,35 @@
 <?php
 
 /**
- * PHP Mikrotik Billing (https://github.com/PalstarKe/ispsystem/master.zip)
- *
- * This script is for updating Mikropulse
+ *  PHP Mikrotik Billing (https://github.com/hotspotbilling/phpnuxbill/)
+ *  by https://t.me/ibnux
  **/
 
 _admin();
 $ui->assign('_title', Lang::T('Dashboard'));
 $ui->assign('_admin', $admin);
 
-$fdate = date('Y-m-01');
-$tdate = date('Y-m-t');
+if(isset($_GET['refresh'])){
+    $files = scandir($CACHE_PATH);
+    foreach ($files as $file) {
+        $ext = pathinfo($file, PATHINFO_EXTENSION);
+        if (is_file($CACHE_PATH . DIRECTORY_SEPARATOR . $file) && $ext == 'temp') {
+            unlink($CACHE_PATH . DIRECTORY_SEPARATOR . $file);
+        }
+    }
+    r2(U . 'dashboard', 's', 'Data Refreshed');
+}
+
+$reset_day = $config['reset_day'];
+if(empty($reset_day)){
+    $reset_day = 1;
+}
 //first day of month
-$first_day_month = date('Y-m-01');
+if($reset_day >= date("d")){
+    $first_day_month = date('Y-m-'.$reset_day);
+}else{
+    $first_day_month = date('Y-m-'.$reset_day, strtotime("-1 MONTH"));
+}
 $mdate = date('Y-m-d');
 $month_n = date('n');
 
@@ -184,6 +200,7 @@ if (file_exists($cacheMSfile) && time() - filemtime($cacheMSfile) < 43200) {
 }
 
 // Assign the monthly sales data to Smarty
+$ui->assign('first_day_month',$first_day_month);
 $ui->assign('monthlySales', $monthlySales);
 $ui->assign('xfooter', '');
 $ui->assign('monthlyRegistered', $monthlyRegistered);

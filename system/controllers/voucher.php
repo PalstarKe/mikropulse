@@ -1,8 +1,7 @@
 <?php
 /**
- * PHP Mikrotik Billing (https://github.com/PalstarKe/ispsystem/master.zip)
- *
- * This script is for updating Mikropulse
+ *  PHP Mikrotik Billing (https://github.com/hotspotbilling/phpnuxbill/)
+ *  by https://t.me/ibnux
  **/
 _auth();
 $ui->assign('_title', Lang::T('Voucher'));
@@ -18,6 +17,7 @@ switch ($action) {
 
     case 'activation':
         run_hook('view_activate_voucher'); #HOOK
+        $ui->assign('code', alphanumeric(_get('code'),"-"));
         $ui->display('user-activation.tpl');
         break;
 
@@ -41,7 +41,7 @@ switch ($action) {
 
     case 'list-activated':
         $ui->assign('_system_menu', 'list-activated');
-        $query = ORM::for_table('tbl_transactions')->where('username', $user['username'])->order_by_asc('id');
+        $query = ORM::for_table('tbl_transactions')->where('username', $user['username'])->order_by_desc('id');
         $d = Paginator::findMany($query);
 
         $ui->assign('d', $d);
