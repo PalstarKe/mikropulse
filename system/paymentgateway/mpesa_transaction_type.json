@@ -1,0 +1,12 @@
+[
+
+	{
+		"id": "CustomerPayBillOnline",
+		"name": "PAYBILL"
+	},
+	{
+		"id": "CustomerBuyGoodsOnline",
+		"name": "TILL"
+	}
+	
+]
